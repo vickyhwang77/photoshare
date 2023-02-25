@@ -29,7 +29,7 @@ CREATE TABLE Pictures(
 CREATE TABLE FriendWith(
     user_id1 int4,
     user_id2 int4,
-    PRIMARY KEY (user_id1, user_id2)
+    PRIMARY KEY (user_id1, user_id2),
     FOREIGN KEY (user_id1) REFERENCES Users(user_id),
     FOREIGN KEY (user_id2) REFERENCES Users(user_id),
     CHECK (user_id1 != user_id2)
@@ -78,7 +78,7 @@ CREATE TABLE AssociatedWith(
 CREATE TABLE Likes(
     user_id int4,
     picture_id int4,
-    PRIMARY KEY(user_id, picture_id)
+    PRIMARY KEY(user_id, picture_id),
     FOREIGN KEY(user_id) REFERENCES Users(user_id),
     FOREIGN KEY(picture_id) REFERENCES Pictures(picture_id)
 );

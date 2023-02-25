@@ -19,5 +19,14 @@ CREATE TABLE Pictures
   INDEX upid_idx (user_id),
   CONSTRAINT pictures_pk PRIMARY KEY (picture_id)
 );
+
+CREATE TABLE Album
+(
+    album_id int4 AUTO_INCREMENT,
+    name VARCHAR(255),
+    date_created DATE,
+    user_id int4 NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id)
+);
 INSERT INTO Users (email, password) VALUES ('test@bu.edu', 'test');
 INSERT INTO Users (email, password) VALUES ('test1@bu.edu', 'test');

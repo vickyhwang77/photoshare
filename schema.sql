@@ -5,8 +5,13 @@ DROP TABLE IF EXISTS Users CASCADE;
 
 CREATE TABLE Users (
     user_id int4  AUTO_INCREMENT,
-    email varchar(255) UNIQUE,
-    password varchar(255),
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    gender VARCHAR(255),
+    date_of_birth DATE,
+    hometown VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    password VARCHAR(255),
     CONSTRAINT users_pk PRIMARY KEY (user_id)
 );
 

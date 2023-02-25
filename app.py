@@ -169,9 +169,56 @@ def isEmailUnique(email):
 		return True
 #end login code
 
+
+
 # begin friendships code 
 
-@app.rout('/friends')
+@app.route('/friendshome') # display the friends home page, where the user has two options 1)add by email or 2)search by name
+@flask_login.login_required
+def friendshome():
+	return render_template('friendshome.html')
+
+
+# for finding friend by email UNFINISHED
+@app.route('/addfriendemail', methods=['GET', 'POST']) # GET = retrieving element, POST = adding element
+@flask_login.login_required
+def addfriendemail():
+	user_id = getUserIdFromEmail(flask_login.current_user.id)
+	friend_email = request.form.get('friend_email')
+	friend_id = getUserIdFromEmail(friend_email)
+    
+
+
+  
+
+# helper methods for friends():
+
+def searchFriend(email):
+	cursor = conn.cursor()
+	cursor.execute("SELECT firstname, lastname, email FROM Users WHERE email = '{0'".format(email))
+	return cursor.fetchall()
+
+def notAlreadyFriends(user_id, friend_id):
+	# returns true if the user is not already friends with that person
+	cursor = conn.cursor()
+	if cursor.execute("SELECT * FROM FriendsWith WHERE user_id = '{0}' AND friend_id = '{1}'".format(user_id, friend_id)):
+		return False
+	else: 
+		return True
+
+def addFriend(user_id, friend_id):
+	# assuming alreadyFriends = false, we can add the new friend to the list
+	cursor = conn.cursor()
+	cursor.execute("INSERT INTO FriendsWith (user_id, friend_id) VALUES ('{0}', '{1}')".format(user_id, friend_id))
+	conn.commit()
+
+def listFriends(user_id):
+	cursor = conn.cursor()
+	cursor.execute("SELECT Users.firstname, Users.lastname, Users.email FROM FriendsWith F, Users U, where\
+					F.user_id = '{0}' and F.friend_id = U.user_id".format(user_id))
+	return cursor.fetchall()
+
+	
 
 
 
@@ -199,7 +246,7 @@ def upload_file():
 		cursor.execute('''INSERT INTO Pictures (imgdata, user_id, caption) VALUES (%s, %s, %s )''', (photo_data, uid, caption))
 		conn.commit()
 		return render_template('hello.html', name=flask_login.current_user.id, message='Photo uploaded!', photos=getUsersPhotos(uid), base64=base64)
-	#The method is GET so we return a  HTML form to upload the a photo.
+	#The method is GET so we return a HTML form to upload the a photo.
 	else:
 		return render_template('upload.html')
 #end photo uploading code

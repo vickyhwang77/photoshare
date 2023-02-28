@@ -1,0 +1,29 @@
+<!-- author victoria hwang (vhwang@bu.edu) -->
+<!-- This html template displays the Friends homepage, the first thing the user sees when they select
+friends on the main page. It gives them the option to find friend by email or search friend by name
+and will take them to another page where they can do so.  -->
+
+
+<head>
+    <title>friends</title>
+</head>
+
+<h1> Find and Add Friends!</h1>
+
+{% if message %}
+  <h4>{{message}}!</h4>
+{% endif %}
+
+<form action="{{ url_for('addfriends') }}" method="post" ><!-- action is where to send information -->
+    <label for="friend_email">Search for Friends if you know their email: </label>
+    <input type="friend_email" name="friend_email" />
+    <input type="submit" />
+</form>
+
+
+  
+
+<ul>
+    <li><a href='/profile'>Profile</a></li>
+    <li><a href='/'>Home</a></li>
+<ul>

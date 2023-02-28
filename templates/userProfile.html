@@ -1,0 +1,25 @@
+
+<head>
+    <title>userProfile/title>
+</head>
+
+
+<h1> Here is your profile!</h1>
+
+{% if message %}
+  <h4>{{message}}!</h4>
+{% endif %}
+
+{% if current_user.is_authenticated %}
+  {% if not message %}
+    <form action="{{ url_for('addfriends') }}" method="post" >
+      <button name="friend_email" value = '{{ emailadd }}' >Add Friend</button>
+    </form>
+  {% endif %}
+{% else%}
+  <p><a href='/login'>Log In</a> or <a href='/register'>Create an Account</a> to add this user as a friend!</p> 
+{% endif %}
+
+
+
+

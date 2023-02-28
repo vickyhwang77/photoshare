@@ -13,6 +13,7 @@ import flask
 from flask import Flask, Response, request, render_template, redirect, url_for
 from flaskext.mysql import MySQL
 import flask_login
+from datetime import datetime
 
 #for image uploading
 import os, base64
@@ -114,11 +115,11 @@ def unauthorized_handler():
 	return render_template('unauth.html')
 
 #you can specify specific methods (GET/POST) in function header instead of inside the functions as seen earlier
-@app.route("/register", methods=['GET'])
+@app.route("/register/", methods=['GET'])
 def register():
 	return render_template('register.html', supress='True')
 
-@app.route("/register", methods=['POST'])
+@app.route("/register/", methods=['POST'])
 def register_user():
 	try:	#test block of code for errors
 		email=request.form.get('email')
@@ -128,7 +129,7 @@ def register_user():
 		gender=request.form.get('gender')
 		dob=request.form.get('dob')
 		hometown=request.form.get('hometown')
-		password=request.form.get('password')
+		score = 0
 
 	except:	#for handling the error
 		print("couldn't find all tokens") #this prints to shell, end users will not see this (all print statements go to shell)
@@ -136,9 +137,9 @@ def register_user():
 	cursor = conn.cursor()
 	test =  isEmailUnique(email)
 	if test:
-		print(cursor.execute("INSERT INTO Users (email, password, firstname, lastname, gender, dob, hometown)\
-		       VALUES ('{0}', '{1}', '{2}', '{3}','{4}', '{5}', '{6}')"\
-		       .format(email, password, firstname, lastname, gender, dob, hometown)))
+		print(cursor.execute("INSERT INTO Users (email, password, firstname, lastname, gender, dob, hometown, score)\
+		       VALUES ('{0}', '{1}', '{2}', '{3}','{4}', '{5}', '{6}', '{7}')"\
+		       .format(email, password, firstname, lastname, gender, dob, hometown, score)))
 		conn.commit()
 		#log user in
 		user = User()
@@ -169,59 +170,145 @@ def isEmailUnique(email):
 		return True
 #end login code
 
-
-
 # begin friendships code 
 
-@app.route('/friendshome') # display the friends home page, where the user has two options 1)add by email or 2)search by name
+# for finding friend by email
+@app.route('/friends', methods=['GET','POST']) # GET = retrieving element, POST = adding element
 @flask_login.login_required
-def friendshome():
-	return render_template('friendshome.html')
+def addfriends():
+		if request.method == 'POST':
+			try:
+				friend_email = request.form.get('friend_email')
+			except:
+				print("couldn't find all token") #this prints to shell, end users will not see this (all print statements go to shell)
+				return render_template('riends.html')
+			
+			user_email = flask_login.current_user.id
 
+			if user_email == friend_email:
+				return render_template('friends.html', message='You cannot be friends with yourself!')
+			elif alreadyFriends(user_email, friend_email):
+				return render_template('friends.html', message='You are already friends with this person!')
+			else:
+				user_id = getUserIdFromEmail(flask_login.current_user.id)
+				friend_id = getUserIdFromEmail(friend_email)
+				cursor = conn.cursor()
 
-# for finding friend by email UNFINISHED
-@app.route('/addfriendemail', methods=['GET', 'POST']) # GET = retrieving element, POST = adding element
-@flask_login.login_required
-def addfriendemail():
-	user_id = getUserIdFromEmail(flask_login.current_user.id)
-	friend_email = request.form.get('friend_email')
-	friend_id = getUserIdFromEmail(friend_email)
-    
+				print(cursor.execute("INSERT INTO photoshare.FriendsWith (user_id, friend_id) VALUES ('{0}', '{1}')".format(user_id, friend_id)))
+				conn.commit()
+				return render_template('friends.html', message='Friend Added!')
 
+		else:
+			return render_template('friends.html')
+	
+	
 
-  
 
 # helper methods for friends():
+# given a user's email, returns 3 emails of friends of friends who are not already friends with the user
+
+def getRecFriends(user_email):
+	recs = []
+	user_friends = getFriends(user_email)
+
+	count = 0
+	for friend in user_friends: # friends of friends implementation
+		friends_of_friend = getFriends(friend)
+		for person in friends_of_friend:
+			if (not alreadyFriends(user_email, person)) and (person not in recs) and (count < 3) and (not user_email == person):
+				recs.append(person)
+				count += 1
+
+	if count < 5: 
+		cursor = conn.cursor()
+		cursor.execute("SELECT email FROM Users WHERE email <> '{0}'".format(user_email)) # all users who aren't the current user
+		people = cursor.fetchall() # list of tuples, [(email1), (email2), ...]
+
+		for person in people:
+			if (not alreadyFriends(user_email, person[0])) and (person[0] not in recs) and (count < 3) and (not person[0] == 'anon@anon.com'):
+				recs.append(person[0])
+				count += 1
+
+	return recs
 
 def searchFriend(email):
 	cursor = conn.cursor()
 	cursor.execute("SELECT firstname, lastname, email FROM Users WHERE email = '{0'".format(email))
 	return cursor.fetchall()
 
-def notAlreadyFriends(user_id, friend_id):
+def alreadyFriends(user_email, friend_email):
 	# returns true if the user is not already friends with that person
+	user_id = getUserIdFromEmail(user_email)
+	friend_id = getUserIdFromEmail(friend_email)
 	cursor = conn.cursor()
+
 	if cursor.execute("SELECT * FROM FriendsWith WHERE user_id = '{0}' AND friend_id = '{1}'".format(user_id, friend_id)):
-		return False
-	else: 
 		return True
-
-def addFriend(user_id, friend_id):
-	# assuming alreadyFriends = false, we can add the new friend to the list
+	elif cursor.execute("SELECT * FROM FriendsWith WHERE user_id = '{1}' AND friend_id = '{0}'".format(user_id, friend_id)):
+		return True
+	else: 
+		return False
+	
+	# given user email, returns that user's user ID
+# given user ID, returns that user's email
+def getEmailFromUserId(user_id):
 	cursor = conn.cursor()
-	cursor.execute("INSERT INTO FriendsWith (user_id, friend_id) VALUES ('{0}', '{1}')".format(user_id, friend_id))
-	conn.commit()
+	cursor.execute("SELECT email FROM Users WHERE user_id = '{0}'".format(user_id))
+	return cursor.fetchone()[0]
 
-def listFriends(user_id):
+# given a user's email, returns a list of their friends' emails
+def getFriends(user_email):
+	uid = getUserIdFromEmail(user_email)
 	cursor = conn.cursor()
-	cursor.execute("SELECT Users.firstname, Users.lastname, Users.email FROM FriendsWith F, Users U, where\
-					F.user_id = '{0}' and F.friend_id = U.user_id".format(user_id))
-	return cursor.fetchall()
+
+	cursor.execute("SELECT friend_id FROM FriendsWith WHERE user_id = '{0}'".format(uid))
+	friends = cursor.fetchall() # list of tuples, [(friend1_id), (friend2_id), ...]
+	friends1 = [friend[0] for friend in friends] # list of ints, [friend1_id, friend2_id, ...]
+
+	cursor.execute("SELECT user_id FROM FriendsWith WHERE friend_id = '{0}'".format(uid))
+	friends = cursor.fetchall() # list of tuples, [(friend1_id), (friend2_id), ...]	
+	friends2 = [friend[0] for friend in friends] # list of ints, [friend1_id, friend2_id, ...]
+
+	friends = friends1 + friends2 # list of user's friends' user IDs, [friend1_id, friend2_id, ...]
+
+	return [getEmailFromUserId(friend) for friend in friends]
+
+#@app.route('/list_friends', methods=['GET', 'POST'])
+#@flask_login.login_required
+def listFriends():
+	user_email = flask_login.current_user.id
+	user_id = getUserIdFromEmail(user_email)
+
+	cursor = conn.cursor()
+	cursor.execute("""
+	SELECT email, firstname, lastname, dob, hometown, gender, score 
+	FROM Users, FriendsWith
+    WHERE FriendsWith.user_id = '{0}' AND FriendsWith.friend_id = Users.user_id
+	UNION
+	SELECT email, firstname, lastname, dob, hometown, gender, score 
+	FROM Users, FriendsWith
+    WHERE FriendsWith.friend_id = '{0}' AND FriendsWith.user_id = Users.user_id
+	""".format(user_id))
+
+	table = cursor.fetchall() # list of tuples, each tuple is a row
+	rows = [formatAttributes2(list(row)) for row in table] # changes each row to a list instead of a tuple
+	recs = getRecFriends(user_email)
+	return render_template('list_friends.html', rows=rows, recs=recs)
 
 	
 
+# end friend code
 
 
+def getphoto():
+    cursor=conn.cursor()
+    cursor.execute("SELECT (imgdata) FROM Pictures")
+    return cursor.fetchall()
+
+@app.route('/browse')
+def browse_file():
+	cursor = conn.cursor()
+	return render_template('hello.html', message='Browse your photo!', photos=getphoto(), base64=base64)
 
 @app.route('/profile')
 @flask_login.login_required
@@ -238,27 +325,106 @@ def allowed_file(filename):
 @flask_login.login_required
 def upload_file():
 	if request.method == 'POST':
-		uid = getUserIdFromEmail(flask_login.current_user.id)
+		user_id = getUserIdFromEmail(flask_login.current_user.id)
 		imgfile = request.files['photo']
 		caption = request.form.get('caption')
 		photo_data =imgfile.read()
-		cursor = conn.cursor()
-		cursor.execute('''INSERT INTO Pictures (imgdata, user_id, caption) VALUES (%s, %s, %s )''', (photo_data, uid, caption))
+		#additional inputs
+		photo_tags = ''			# for getting multiple tags
+		photo_tags_input = request.form.get('tags') 
+		if photo_tags_input:
+			photo_tags = photo_tags_input.split() # list of tags, split by spaces: "tag1 tag2 tag3" -> ["tag1", "tag2", "tag3"]
+		if photo_tags_input:
+			photo_tags = photo_tags_input.split() # list of tags, split by spaces: "tag1 tag2 tag3" -> ["tag1", "tag2", "tag3"]
+		
+		if allowed_file(imgfile):
+			album = request.form.get('album')
+			cursor = conn.cursor()
+			cursor.execute("INSERT INTO Pictures (albums_id, imgdata, user_id, caption, num_likes) VALUES (%s, %s, %s, %s, %s )", \
+		  	(album, photo_data, user_id, caption, 0))
+			if photo_tags:
+				for tag in tags:
+					if newTag(tag):
+						createTag(tag)
+						addTag(tag, picture_id)
+			conn.commit
+			#update score here when have methods
+				
+		#cursor = conn.cursor()
+		#cursor.execute('''INSERT INTO Pictures (imgdata, user_id, caption) VALUES (%s, %s, %s )''', (photo_data, user_id, caption))
 		conn.commit()
-		return render_template('hello.html', name=flask_login.current_user.id, message='Photo uploaded!', photos=getUsersPhotos(uid), base64=base64)
+		return render_template('hello.html', name=flask_login.current_user.id, message='Photo uploaded!', \
+			 					photos=getUsersPhotos(user_id), base64=base64)
 	#The method is GET so we return a HTML form to upload the a photo.
 	else:
 		return render_template('upload.html')
-#end photo uploading code
 
+#helper functions for tags/upload
+
+def newTag(tag):
+	cursor = conn.cursor()
+	if cursor.execute("SELECT name FROM Tags WHERE word = '{0}'".format(tag)):
+		return False
+	return True
+
+def createTag(tag): 
+	cursor = conn.cursor()
+	cursor.execute("INSERT INTO Tags (word, num_photos) VALUES ('{0}', '{1}')".format(tag, 0))
+	conn.commit()
+
+# given tag name and photo id, adds a tag to a photo 
+def addTag(tag, picture_id): 
+	user_id = getUserIdFromEmail(flask_login.current_user.id)
+	cursor = conn.cursor()
+	cursor.execute("INSERT INTO Tagged (picture_id, word, user_id) VALUES ('{0}', '{1}', '{2}')".format(picture_id, tag, user_id))
+	conn.commit()
+	cursor.execute("UPDATE Tags SET num_photos = num_photos + 1 WHERE word = '{0}'".format(tag)) # updates number of photos associated w tag
+	conn.commit()
+
+#Album Code:
+
+@app.route('/album',methods=['GET','POST'])
+@flask_login.login_required
+def create_album():
+	if flask.request.method=='POST':
+		user_id = getUserIdFromEmail(flask_login.current_user.id)
+		album_name = request.form.get('name')
+		date = datetime.today().strftime('%Y-%m-%d')  #getting the current date
+		cursor = conn.cursor()
+		cursor.execute('''INSERT INTO Album (name, date, user_id) VALUES (%s, %s, %s)''', (album_name, date, user_id))
+		conn.commit()
+		return render_template('hello.html', name=flask_login.current_user.id, message='Album Created!', album=displayAlbum(), base64=base64)
+	else:
+		return render_template('create_album.html', name=flask_login.current_user.id)
+	
+def displayAlbum():
+        cursor=conn.cursor()
+        cursor.execute("SELECT(name) FROM Album")
+        return cursor.fetchall()
 
 #default page
 @app.route("/", methods=['GET'])
 def hello():
-	return render_template('hello.html', message='Welecome to Photoshare')
+	return render_template('hello.html', message='Welcome to Photoshare')
 
+def formatAttributes2(userAttributes):
+	email, firstname, lastname, dob, hometown, gender, score = userAttributes
+	if firstname == "":
+		firstname = '-'
+	if lastname == "":
+		lastname = '-'
+	if dob == "0001-01-01":
+		dob = '-'
+	if hometown == "":
+		hometown = '-'
+	if gender == "":
+		gender = '-'
+	return (email, firstname, lastname, dob, hometown, gender, score)
 
 if __name__ == "__main__":
 	#this is invoked when in the shell  you run
 	#$ python app.py
 	app.run(port=5000, debug=True)
+
+
+ 

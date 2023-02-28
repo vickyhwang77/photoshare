@@ -11,17 +11,18 @@ CREATE TABLE Users (
 	firstname varchar (225),
     lastname varchar (225),
     gender varchar (225),
-    dob INTEGER,
+    dob DATE NOT NULL,
     hometown varchar(225),
+    score INTEGER NOT NULL,
 	CONSTRAINT users_pk PRIMARY KEY (user_id)
 );
 CREATE TABLE FriendsWith (
-	user_id1 int NOT NULL,
-	user_id2 int NOT NULL,
-	FOREIGN KEY (user_id1) REFERENCES Users(user_id),
-	FOREIGN KEY (user_id2) REFERENCES Users(user_id),
-    CONSTRAINT FriendsWith_pk PRIMARY KEY (user_id1, user_id2),
-    CHECK (user_id1 != user_id2)
+	user_id int NOT NULL,
+	friend_id int NOT NULL,
+	FOREIGN KEY (user_id) REFERENCES Users(user_id),
+	FOREIGN KEY (friend_id) REFERENCES Users(user_id),
+    CONSTRAINT FriendsWith_pk PRIMARY KEY (user_id, friend_id),
+    CHECK (user_id != friend_id)
 );
 
 CREATE TABLE Pictures
@@ -33,6 +34,5 @@ CREATE TABLE Pictures
   INDEX upid_idx (user_id),
   CONSTRAINT pictures_pk PRIMARY KEY (picture_id)
 );
-INSERT INTO Users (email, password) VALUES ('test@bu.edu', 'test');
-INSERT INTO Users (email, password) VALUES ('test1@bu.edu', 'test');
+
 
